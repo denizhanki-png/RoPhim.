@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Rophim WebOS</title>
+<style>
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden;}
+.screen{display:none;padding:20px;}
+.active{display:block;}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;justify-items:center;}
+.poster{border:3px solid transparent;width:160px;height:240px;border-radius:10px;object-fit:cover;transition:.2s;}
+.poster.focus{border-color:#0f0;transform:scale(1.05);}
+button{padding:10px 20px;font-size:18px;margin:10px;background:#222;color:#fff;border:none;border-radius:8px;}
+button:focus{outline:2px solid #0f0;}
+.cat{padding:12px 20px;background:#111;margin:10px 0;border-radius:8px;}
+.cat.focus{background:#0f0;color:#000;}
+video{width:100%;height:90vh;background:#000;}
+h2{text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- Home Screen -->
+<div id="home" class="screen active">
+  <h2>🎬 Chọn thể loại phim</h2>
+  <div id="categories">
+    <div class="cat focus" data-cat="le">Phim Lẻ</div>
+    <div class="cat" data-cat="bo">Phim Bộ</div>
+    <div class="cat" data-cat="hanhdong">Phim Hành Động</div>
+    <div class="cat" data-cat="kinhdi">Phim Kinh Dị</div>
+    <div class="cat" data-cat="hai">Phim Hài</div>
+  </div>
+</div>
+
+<!-- Grid -->
+<div id="gridScreen" class="screen">
+  <h2 id="gridTitle">Phim</h2>
+  <div id="movieGrid" class="grid"></div>
+</div>
+
+<!-- Detail -->
+<div id="detail" class="screen">
+  <h2 id="detailTitle"></h2>
+  <img id="detailPoster" style="width:180px;height:270px;border-radius:10px;display:block;margin:auto;">
+  <p id="detailDesc" style="text-align:center;"></p>
+  <div style="text-align:center;">
+    <button id="watchBtn">▶ Xem phim</button>
+    <button id="backBtn">← Trở lại</button>
+  </div>
+</div>
+
+<!-- Player -->
+<div id="player" class="screen">
+  <video id="video" controls></video>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script>
+// ===================== CONFIG =====================
+const DATA_URL = "https://raw.githubusercontent.com/denizhanki-png/RoPhim/refs/heads/main/movies.json"; 
+// 👆 Thay bằng link thật, ví dụ: https://rophim-proxy.onrender.com/movies.json
+
+// ===================== DEMO DỮ LIỆU (nếu server lỗi) =====================
+let demoMovies = {
+  le:[
+    {title:"Hồng Súng Vô Hình", poster:"https://via.placeholder.com/150x225?text=HSVH", desc:"Phim hành động kịch tính", stream:"https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"},
+    {title:"Phim Lẻ 2", poster:"https://via.placeholder.com/150x225?text=Phim+Lẻ+2", desc:"Hài hước, nhẹ nhàng", stream:"https://test-streams.mux.dev/test_001/stream.m3u8"}
+  ],
+  bo:[
+    {title:"Phim Bộ A", poster:"https://via.placeholder.com/150x225?text=Phim+Bộ+A", desc:"Phim dài tập hấp dẫn", stream:"https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"}
+  ],
+  hanhdong:[
+    {title:"Biệt Đội Tử Thần", poster:"https://via.placeholder.com/150x225?text=Biệt+Đội", desc:"Chiến đấu và sinh tồn", stream:"https://test-streams.mux.dev/dai.m3u8"}
+  ]
+};
+
+// ===================== BIẾN TOÀN CỤC =====================
+let moviesData = {};
+let currentCat = "le", movies = [], focusIndex = 0, currentMovie = null;
+
+const home = document.getElementById('home');
+const gridScreen = document.getElementById('gridScreen');
+const detail = document.getElementById('detail');
+const player = document.getElementById('player');
+const video = document.getElementById('video');
+const movieGrid = document.getElementById('movieGrid');
+const gridTitle = document.getElementById('gridTitle');
+const cats = Array.from(document.querySelectorAll('.cat'));
+let catFocus = 0;
+
+// ===================== HÀM =====================
+function showScreen(s){
+  [home,gridScreen,detail,player].forEach(x=>x.classList.remove('active'));
+  s.classList.add('active');
+}
+
+function setCatFocus(i){
+  cats.forEach(c=>c.classList.remove('focus'));
+  cats[i].classList.add('focus');
+  catFocus=i;
+}
+
+function loadMovies(cat){
+  movies = moviesData[cat] || [];
+  movieGrid.innerHTML = '';
+  movies.forEach((m,i)=>{
+    let img=document.createElement('img');
+    img.src=m.poster; img.className='poster';
+    if(i===0) img.classList.add('focus');
+    movieGrid.appendChild(img);
+  });
+  focusIndex=0;
+}
+
+function moveFocus(delta){
+  const els = movieGrid.querySelectorAll('.poster');
+  if(els.length===0) return;
+  els[focusIndex].classList.remove('focus');
+  focusIndex=(focusIndex+delta+els.length)%els.length;
+  els[focusIndex].classList.add('focus');
+}
+
+function showDetail(m){
+  currentMovie=m;
+  document.getElementById('detailTitle').innerText=m.title;
+  document.getElementById('detailPoster').src=m.poster;
+  document.getElementById('detailDesc').innerText=m.desc;
+  showScreen(detail);
+  document.getElementById('watchBtn').focus();
+}
+
+function startPlay(src){
+  showScreen(player);
+  if(Hls.isSupported()){
+    let hls=new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play());
+  } else { video.src=src; video.play(); }
+}
+
+// ===================== PHÍM REMOTE =====================
+document.addEventListener('keydown',(e)=>{
+  if(home.classList.contains('active')){
+    switch(e.key){
+      case 'ArrowDown': setCatFocus((catFocus+1)%cats.length); break;
+      case 'ArrowUp': setCatFocus((catFocus-1+cats.length)%cats.length); break;
+      case 'Enter':
+        currentCat=cats[catFocus].dataset.cat;
+        loadMovies(currentCat);
+        gridTitle.innerText=cats[catFocus].innerText;
+        showScreen(gridScreen);
+      break;
+    }
+  } else if(gridScreen.classList.contains('active')){
+    switch(e.key){
+      case 'ArrowRight': moveFocus(1); break;
+      case 'ArrowLeft': moveFocus(-1); break;
+      case 'ArrowDown': moveFocus(3); break;
+      case 'ArrowUp': moveFocus(-3); break;
+      case 'Enter': currentMovie=movies[focusIndex]; showDetail(currentMovie); break;
+      case 'Backspace': case 'Escape': showScreen(home); break;
+    }
+  } else if(detail.classList.contains('active')){
+    const btns=[document.getElementById('watchBtn'),document.getElementById('backBtn')];
+    let idx=btns.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      idx=(idx+(e.key==='ArrowDown'?1:-1)+btns.length)%btns.length;
+      btns[idx].focus();
+    }
+    if(e.key==='Enter'){
+      if(document.activeElement.id==='watchBtn') startPlay(currentMovie.stream);
+      if(document.activeElement.id==='backBtn') showScreen(gridScreen);
+    }
+    if(e.key==='Backspace'||e.key==='Escape') showScreen(gridScreen);
+  } else if(player.classList.contains('active')){
+    if(e.key==='ArrowLeft') video.currentTime-=10;
+    if(e.key==='ArrowRight') video.currentTime+=10;
+    if(e.key==='Enter') video.paused?video.play():video.pause();
+    if(e.key==='Backspace'||e.key==='Escape'){ video.pause(); showScreen(gridScreen); }
+  }
+});
+
+// ===================== FETCH DỮ LIỆU =====================
+fetch(DATA_URL)
+  .then(r=>r.json())
+  .then(d=>{ moviesData=d; loadMovies(currentCat); })
+  .catch(err=>{
+    console.warn("❗Không lấy được dữ liệu online, dùng demoMovies");
+    moviesData=demoMovies; loadMovies(currentCat);
+  });
+
+setCatFocus(0);
+</script>
+</body>
+</html>
