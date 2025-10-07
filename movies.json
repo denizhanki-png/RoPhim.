@@ -1,0 +1,24 @@
+{
+  "le": [
+    {
+      "title": "Hồng Súng Vô Hình",
+      "poster": "https://via.placeholder.com/150x225?text=HSVH",
+      "desc": "Phim hành động",
+      "stream": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+    },
+    {
+      "title": "Phim Lẻ 2",
+      "poster": "https://via.placeholder.com/150x225?text=Phim+Lẻ+2",
+      "desc": "Phim hài hước",
+      "stream": "https://test-streams.mux.dev/test_001/stream.m3u8"
+    }
+  ],
+  "bo": [
+    {
+      "title": "Phim Bộ A",
+      "poster": "https://via.placeholder.com/150x225?text=Phim+Bộ+A",
+      "desc": "Phim bộ hấp dẫn",
+      "stream": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+    }
+  ]
+}
